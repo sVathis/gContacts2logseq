@@ -19,9 +19,9 @@ class md_person:
 
     def md_print_name(self):
         if 'names' in self.person:
-            self.md.new_header( level=1, title=f'[[{self.name}]]' )
-            self.md.write(f'type:: google-contact\n')
-            self.md.write(f'page-type:: google-contact\n')
+#            self.md.new_header( level=1, title=f'[[{self.name}]]' )
+            self.md.write(f'type:: [[People]]\n')
+            self.md.write(f'page-type:: [[People]]\n')
             self.md.write(f'icon:: \n')
 
         else:
@@ -57,13 +57,37 @@ class md_person:
             gs = ", ".join(values)
             if (gs != ""):
                 self.md.write(f'group:: {gs}\n')
+    
+    def md_print_link(self):
+        if 'resourceName' in self.person:
+            self.md.write(f"link:: https://contacts.google.com/{self.person['resourceName'].replace('people','person')}\n")
+
+    def md_print_job(self):
+        if 'organizations' in self.person:
+            org = self.person['organizations'][0]
+            jobs = list()
+            if 'title' in org:
+                jobs.append(f"[[{org['title']}]]")
+            if 'name' in org:
+                jobs.append(f"[[{org['name']}]]")
+            j = ','.join(jobs)
+            if (j != ""):
+                self.md.write(f'jobs:: {j}\n')
+
+    def md_print_notes(self):
+        if 'biographies' in self.person:
+            self.md.write(f'{self.person["biographies"][0]["value"]}')
+
 
     def print(self):
         self.md_print_name()
         self.md_print_phones()
         self.md_print_emails()
         self.md_print_groups()
-        print(self.md.get_md_text())
+        self.md_print_link()
+        self.md_print_job()
+        self.md_print_notes()
+#        print(self.md.get_md_text())
 
     def write(self):
         self.md.create_md_file()
@@ -74,7 +98,7 @@ class md_person:
 
 
 # If modifying these scopes, delete the file token.json.
-SCOPES = ['https://www.googleapis.com/auth/contacts.readonly']
+SCOPES = ['https://www.googleapis.com/auth/contacts.readonly','https://www.googleapis.com/auth/user.addresses.read']
 
 """Shows basic usage of the People API.
 Prints the name of the first 10 connections.
@@ -108,8 +132,6 @@ def populate_groups(service):
     g=dict()
     for group in groups['contactGroups']:
         g.__setitem__(group['resourceName'],group['formattedName'])
-
-    pprint(g)
     return g
 
 
@@ -127,19 +149,21 @@ try:
     results = service.people().connections().list(
         resourceName='people/me',
         pageSize=300,
-        personFields='names,phoneNumbers,emailAddresses,memberships',
+        personFields='names,phoneNumbers,emailAddresses,memberships,metadata,organizations,addresses,biographies',
         sortOrder='LAST_NAME_ASCENDING').execute()
     connections = results.get('connections', [])
 
     index_md = MdUtils(file_name="/mnt/c/tmp/logseq/pages/People/People.md")
+
     for person in connections:
-        #print(json.dumps(person, indent=4, ensure_ascii=False))
+
 #        pprint(person)
-#        index_md.new_header( level=1, title=f'[[{person["names"][0]["displayName"]}]]' )
+        index_md.new_header(level=1,title=f'[[{person["names"][0]["displayName"]}]]' )
+
         p = md_person(person)
         p.print()
         p.write()
-#        print("===================================")
+
         names = person.get('names', [])
         if names:
             name = names[0].get('displayName')
@@ -151,19 +175,5 @@ try:
     #print(index_md.get_md_text())
     index_md.create_md_file()
 
-    peoples.sort()
-
-#    pprint(people)
-
-    #md = MdUtils(file_name="People.md")
-
-    #for people in peoples:
-        #md.new_paragraph(f'[[{people}]]')
-        #smd.new_header(level=1,title=f'[[{people}]]')
-#        print(people)
-
-#    md.create_md_file()
-
-
-except HttpError as err:
+except Exception as err:
     print(err)
