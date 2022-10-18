@@ -20,47 +20,44 @@ class md_person:
     def md_print_name(self):
         if 'names' in self.person:
 #            self.md.new_header( level=1, title=f'[[{self.name}]]' )
+            self.md.write(f'title:: [[{self.name}]]\n')
             self.md.write(f'type:: [[People]]\n')
             self.md.write(f'page-type:: [[People]]\n')
             self.md.write(f'icon:: \n')
-
-        else:
-            pass
 
     def md_print_phones(self):
         if 'phoneNumbers' in self.person:
             for phone in self.person['phoneNumbers']:
                 if 'canonicalForm' in phone:
                     if 'type' in phone:
-                        self.md.write(f'{phone["type"]}-phone:: {phone["canonicalForm"]}\n')
+                        self.md.write(f'phone.{phone["type"]}:: `{phone["canonicalForm"]}`\n')
                     else:
-                        self.md.write(f'phone:: {phone["canonicalForm"]}\n')
+                        self.md.write(f'phone:: `{phone["canonicalForm"]}`\n')
                     
 
     def md_print_emails(self):
         if 'emailAddresses' in self.person:
             for email in self.person['emailAddresses']:
                 if 'type' in email:
-                    self.md.write(f'{email["type"]}-email:: {email["value"]}\n')
+                    self.md.write(f'email.{email["type"]}:: `{email["value"]}`\n')
                 else:
-                    self.md.write(f'email:: {email["value"]}\n')
+                    self.md.write(f'email:: `{email["value"]}`\n')
 
     def md_print_groups(self):
         if 'memberships' in self.person:
             values = list()
             for membership in self.person['memberships']:
                 id = membership["contactGroupMembership"]["contactGroupResourceName"]
-                if  id == "contactGroups/myContacts":
-                    continue
-                values.append(f'[[{groups[id]}]]')
+                values.append(f'[[People/{groups[id]}]]')
 
             gs = ", ".join(values)
             if (gs != ""):
                 self.md.write(f'group:: {gs}\n')
+                self.md.write(f'tags:: {gs}\n')
     
     def md_print_link(self):
         if 'resourceName' in self.person:
-            self.md.write(f"link:: https://contacts.google.com/{self.person['resourceName'].replace('people','person')}\n")
+            self.md.write(f"url:: https://contacts.google.com/{self.person['resourceName'].replace('people','person')}\n")
 
     def md_print_job(self):
         if 'organizations' in self.person:
@@ -76,17 +73,33 @@ class md_person:
 
     def md_print_notes(self):
         if 'biographies' in self.person:
-            self.md.write(f'{self.person["biographies"][0]["value"]}')
+            self.md.write(f'{self.person["biographies"][0]["value"]}\n')
+
+    def md_print_addresses(self):
+        if 'addresses' in self.person:
+            for address in self.person['addresses']:
+                if 'formattedValue' in address:
+                    a = address["formattedValue"].replace("\n",", ")
+                    map_iframe = f'<iframe src="https://www.google.com/maps?q={a}&output=embed" frameborder="0" style="border:0"></iframe>'
+                    if 'type' in address:
+                        self.md.write(f'address.{address["type"]}:: `{a}`\n')
+                        self.md.write(f'map.{address["type"]}:: {map_iframe}\n')
+                    else:
+                        self.md.write(f'address:: `{a}`\n')
+                        self.md.write(f'map:: {map_iframe}\n')
+
+
 
 
     def print(self):
         self.md_print_name()
+        self.md_print_job()
+        self.md_print_groups()
         self.md_print_phones()
         self.md_print_emails()
-        self.md_print_groups()
-        self.md_print_link()
-        self.md_print_job()
         self.md_print_notes()
+        self.md_print_link()
+        self.md_print_addresses()
 #        print(self.md.get_md_text())
 
     def write(self):
@@ -132,12 +145,13 @@ def populate_groups(service):
     g=dict()
     for group in groups['contactGroups']:
         g.__setitem__(group['resourceName'],group['formattedName'])
+
+#    pprint(g)
     return g
 
 
 try:
     peoples = []
-
 
     creds = login()
 
@@ -149,7 +163,7 @@ try:
     results = service.people().connections().list(
         resourceName='people/me',
         pageSize=300,
-        personFields='names,phoneNumbers,emailAddresses,memberships,metadata,organizations,addresses,biographies',
+        personFields='names,phoneNumbers,emailAddresses,memberships,metadata,organizations,addresses,biographies,addresses',
         sortOrder='LAST_NAME_ASCENDING').execute()
     connections = results.get('connections', [])
 
@@ -168,7 +182,7 @@ try:
         if names:
             name = names[0].get('displayName')
             try:
-                peoples.append(name)
+                print(name)
             except:
                 pass
 
