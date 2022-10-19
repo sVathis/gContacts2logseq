@@ -49,11 +49,10 @@ class md_person:
             for membership in self.person['memberships']:
                 id = membership["contactGroupMembership"]["contactGroupResourceName"]
                 values.append(f'[[People/{groups[id]}]]')
-
             gs = ", ".join(values)
+            self.groups = gs
             if (gs != ""):
                 self.md.write(f'group:: {gs}\n')
-                self.md.write(f'tags:: {gs}\n')
     
     def md_print_link(self):
         if 'resourceName' in self.person:
@@ -68,8 +67,23 @@ class md_person:
             if 'name' in org:
                 jobs.append(f"[[{org['name']}]]")
             j = ','.join(jobs)
+            self.jobs = j
             if (j != ""):
                 self.md.write(f'jobs:: {j}\n')
+
+    def md_print_tags(self):
+        g = hasattr(self,"groups")
+        j = hasattr(self,"jobs")
+
+        if (g and j):
+            self.md.write(f'tags:: {self.groups}, {self.jobs}\n')
+        else:
+            if (g and not j):
+                self.md.write(f'tags:: {self.groups}\n')
+            else:
+                if (not g and j):
+                    self.md.write(f'tags:: {self.jobs}\n')
+
 
     def md_print_notes(self):
         if 'biographies' in self.person:
@@ -95,6 +109,7 @@ class md_person:
         self.md_print_name()
         self.md_print_job()
         self.md_print_groups()
+        self.md_print_tags()
         self.md_print_phones()
         self.md_print_emails()
         self.md_print_notes()
