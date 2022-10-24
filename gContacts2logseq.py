@@ -9,9 +9,13 @@ from googleapiclient.errors import HttpError
 from mdutils.mdutils import MdUtils
 
 
+logseq_graph_dir = "/mnt/c/tmp/logseq/pages/"
+logseq_people_dir = logseq_graph_dir + "People/"
+logseq_people_index_file = logseq_people_dir + "People.md"
+
 class md_person:
     def __init__(self, person) -> None:
-        self.path = "/mnt/c/tmp/logseq/pages/People/"
+        self.path = logseq_people_dir
         self.person = person
         self.name = f'{person["names"][0]["displayName"]}'
         self.md = MdUtils(file_name=f'{self.path}{self.name}.md')
@@ -182,7 +186,7 @@ try:
         sortOrder='LAST_NAME_ASCENDING').execute()
     connections = results.get('connections', [])
 
-    index_md = MdUtils(file_name="/mnt/c/tmp/logseq/pages/People/People.md")
+    index_md = MdUtils(file_name=logseq_people_index_file)
 
     for person in connections:
 
