@@ -21,7 +21,7 @@ class md_person:
         self.md = MdUtils(file_name=f'{self.path}{self.name}.md')
 
 
-    def md_print_name(self):
+    def md_write_name(self):
         if 'names' in self.person:
 #            self.md.new_header( level=1, title=f'[[{self.name}]]' )
             self.md.write(f'title:: [[{self.name}]]\n')
@@ -29,7 +29,7 @@ class md_person:
             self.md.write(f'page-type:: [[People]]\n')
             self.md.write(f'icon:: \n')
 
-    def md_print_phones(self):
+    def md_write_phones(self):
         if 'phoneNumbers' in self.person:
             for phone in self.person['phoneNumbers']:
                 if 'canonicalForm' in phone:
@@ -39,7 +39,7 @@ class md_person:
                         self.md.write(f'phone:: `{phone["canonicalForm"]}`\n')
                     
 
-    def md_print_emails(self):
+    def md_write_emails(self):
         if 'emailAddresses' in self.person:
             for email in self.person['emailAddresses']:
                 if 'type' in email:
@@ -47,7 +47,7 @@ class md_person:
                 else:
                     self.md.write(f'email:: `{email["value"]}`\n')
 
-    def md_print_groups(self):
+    def md_write_groups(self):
         if 'memberships' in self.person:
             values = list()
             for membership in self.person['memberships']:
@@ -58,11 +58,11 @@ class md_person:
             if (gs != ""):
                 self.md.write(f'group:: {gs}\n')
     
-    def md_print_link(self):
+    def md_write_link(self):
         if 'resourceName' in self.person:
             self.md.write(f"url:: https://contacts.google.com/{self.person['resourceName'].replace('people','person')}\n")
 
-    def md_print_job(self):
+    def md_write_job(self):
         if 'organizations' in self.person:
             org = self.person['organizations'][0]
             jobs = list()
@@ -75,7 +75,7 @@ class md_person:
             if (j != ""):
                 self.md.write(f'jobs:: {j}\n')
 
-    def md_print_tags(self):
+    def md_write_tags(self):
         g = hasattr(self,"groups")
         j = hasattr(self,"jobs")
 
@@ -89,11 +89,11 @@ class md_person:
                     self.md.write(f'tags:: {self.jobs}\n')
 
 
-    def md_print_notes(self):
+    def md_write_notes(self):
         if 'biographies' in self.person:
             self.md.write(f'{self.person["biographies"][0]["value"]}\n')
 
-    def md_print_addresses(self):
+    def md_write_addresses(self):
         if 'addresses' in self.person:
             for address in self.person['addresses']:
                 if 'formattedValue' in address:
@@ -109,32 +109,28 @@ class md_person:
 
 
 
-    def print(self):
-        self.md_print_name()
-        self.md_print_job()
-        self.md_print_groups()
-        self.md_print_tags()
-        self.md_print_phones()
-        self.md_print_emails()
-        self.md_print_notes()
-        self.md_print_link()
-        self.md_print_addresses()
+    def write(self):
+        self.md_write_name()
+        self.md_write_job()
+        self.md_write_groups()
+        self.md_write_tags()
+        self.md_write_phones()
+        self.md_write_emails()
+        self.md_write_notes()
+        self.md_write_link()
+        self.md_write_addresses()
 #        print(self.md.get_md_text())
 
-    def write(self):
+    def save(self):
         self.md.create_md_file()
 
 
 
 # https://developers.google.com/people/quickstart/python
 
-
 # If modifying these scopes, delete the file token.json.
 SCOPES = ['https://www.googleapis.com/auth/contacts.readonly','https://www.googleapis.com/auth/user.addresses.read']
 
-"""Shows basic usage of the People API.
-Prints the name of the first 10 connections.
-"""
 
 def login():
     # The file token.json stores the user's access and refresh tokens, and is
@@ -170,8 +166,6 @@ def populate_groups(service):
 
 
 try:
-    peoples = []
-
     creds = login()
 
     service = build('people', 'v1', credentials=creds)
@@ -194,8 +188,8 @@ try:
         index_md.new_header(level=1,title=f'[[{person["names"][0]["displayName"]}]]' )
 
         p = md_person(person)
-        p.print()
         p.write()
+        p.save()
 
         names = person.get('names', [])
         if names:
