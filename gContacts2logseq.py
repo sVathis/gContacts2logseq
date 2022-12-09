@@ -129,7 +129,6 @@ class md_person:
         self.md_write_notes()
         self.md_write_link()
         self.md_write_addresses()
-        self.save()
 
 
 # https://developers.google.com/people/quickstart/python
@@ -194,19 +193,21 @@ try:
 
         p = md_person(person)
         p.write_all()
+        p.save()
 
-#        if (exists(p.file_name)):
-#            existing_md = MdUtils(file_name=p.file_name)
-#            existing_md.read_md_file(p.file_name)
-#            
-#            
-#            
-#            if p.md.get_md_text() != existing_md.get_md_text().replace("\n\n\n\n\n\n","\n\n\n"):
-#                print(f"Updates on {p.name}")
-#
-#                difference = difflib.unified_diff(p.md.get_md_text(), existing_md.get_md_text().replace("\n\n\n\n\n\n","\n\n\n"))
-#                for item in difference:
-#                    print(item, end='')
+
+        md = ""
+        if (exists(p.file_name)):
+            with open(p.file_name,"r") as f:
+                existing_md =f.read()
+
+
+            if p.buffer != existing_md:
+                print(f"Updates on {p.name}")
+
+                difference = difflib.unified_diff(p.buffer, existing_md)
+                for item in difference:
+                    print(item, end='')
 
     with open(logseq_people_index_file,"w") as index_md_file:
         index_md_file.writelines(index_md)
