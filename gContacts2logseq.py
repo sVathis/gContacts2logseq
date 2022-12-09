@@ -1,12 +1,13 @@
 import os.path
 import json
+import difflib
 from pprint import pprint 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-from mdutils.mdutils import MdUtils
+from os.path import exists
 
 
 logseq_graph_dir = "/mnt/c/tmp/logseq/pages/"
@@ -18,34 +19,43 @@ class md_person:
         self.path = logseq_people_dir
         self.person = person
         self.name = f'{person["names"][0]["displayName"]}'
-        self.md = MdUtils(file_name=f'{self.path}{self.name}.md')
+        self.file_name=f'{self.path}{self.name}.md'
+        self.md = open(self.file_name,"w")
+        self.buffer = ""
 
+    def write(self, s):
+        self.buffer += s
+
+    def save(self):
+        with open(self.file_name,"w") as f:
+            f.write(self.buffer)
+            f.close()
 
     def md_write_name(self):
         if 'names' in self.person:
 #            self.md.new_header( level=1, title=f'[[{self.name}]]' )
-            self.md.write(f'title:: [[{self.name}]]\n')
-            self.md.write(f'type:: [[People]]\n')
-            self.md.write(f'page-type:: [[People]]\n')
-            self.md.write(f'icon:: \n')
+            self.write(f'title:: [[{self.name}]]\n')
+            self.write(f'type:: [[People]]\n')
+            self.write(f'page-type:: [[People]]\n')
+            self.write(f'icon:: \n')
 
     def md_write_phones(self):
         if 'phoneNumbers' in self.person:
             for phone in self.person['phoneNumbers']:
                 if 'canonicalForm' in phone:
                     if 'type' in phone:
-                        self.md.write(f'phone.{phone["type"]}:: `{phone["canonicalForm"]}`\n')
+                        self.write(f'phone.{phone["type"]}:: `{phone["canonicalForm"]}`\n')
                     else:
-                        self.md.write(f'phone:: `{phone["canonicalForm"]}`\n')
+                        self.write(f'phone:: `{phone["canonicalForm"]}`\n')
                     
 
     def md_write_emails(self):
         if 'emailAddresses' in self.person:
             for email in self.person['emailAddresses']:
                 if 'type' in email:
-                    self.md.write(f'email.{email["type"]}:: `{email["value"]}`\n')
+                    self.write(f'email.{email["type"]}:: `{email["value"]}`\n')
                 else:
-                    self.md.write(f'email:: `{email["value"]}`\n')
+                    self.write(f'email:: `{email["value"]}`\n')
 
     def md_write_groups(self):
         if 'memberships' in self.person:
@@ -56,11 +66,11 @@ class md_person:
             gs = ", ".join(values)
             self.groups = gs
             if (gs != ""):
-                self.md.write(f'group:: {gs}\n')
+                self.write(f'group:: {gs}\n')
     
     def md_write_link(self):
         if 'resourceName' in self.person:
-            self.md.write(f"url:: https://contacts.google.com/{self.person['resourceName'].replace('people','person')}\n")
+            self.write(f"url:: https://contacts.google.com/{self.person['resourceName'].replace('people','person')}\n")
 
     def md_write_job(self):
         if 'organizations' in self.person:
@@ -73,25 +83,25 @@ class md_person:
             j = ','.join(jobs)
             self.jobs = j
             if (j != ""):
-                self.md.write(f'jobs:: {j}\n')
+                self.write(f'jobs:: {j}\n')
 
     def md_write_tags(self):
         g = hasattr(self,"groups")
         j = hasattr(self,"jobs")
 
         if (g and j):
-            self.md.write(f'tags:: {self.groups}, {self.jobs}\n')
+            self.write(f'tags:: {self.groups}, {self.jobs}\n')
         else:
             if (g and not j):
-                self.md.write(f'tags:: {self.groups}\n')
+                self.write(f'tags:: {self.groups}\n')
             else:
                 if (not g and j):
-                    self.md.write(f'tags:: {self.jobs}\n')
+                    self.write(f'tags:: {self.jobs}\n')
 
 
     def md_write_notes(self):
         if 'biographies' in self.person:
-            self.md.write(f'{self.person["biographies"][0]["value"]}\n')
+            self.write(f'{self.person["biographies"][0]["value"]}\n')
 
     def md_write_addresses(self):
         if 'addresses' in self.person:
@@ -100,16 +110,16 @@ class md_person:
                     a = address["formattedValue"].replace("\n",", ")
                     map_iframe = f'<iframe src="https://www.google.com/maps?q={a}&output=embed" frameborder="0" style="border:0"></iframe>'
                     if 'type' in address:
-                        self.md.write(f'address.{address["type"]}:: `{a}`\n')
-                        self.md.write(f'map.{address["type"]}:: {map_iframe}\n')
+                        self.write(f'address.{address["type"]}:: `{a}`\n')
+                        self.write(f'map.{address["type"]}:: {map_iframe}\n')
                     else:
-                        self.md.write(f'address:: `{a}`\n')
-                        self.md.write(f'map:: {map_iframe}\n')
+                        self.write(f'address:: `{a}`\n')
+                        self.write(f'map:: {map_iframe}\n')
 
 
 
 
-    def write(self):
+    def write_all(self):
         self.md_write_name()
         self.md_write_job()
         self.md_write_groups()
@@ -119,11 +129,7 @@ class md_person:
         self.md_write_notes()
         self.md_write_link()
         self.md_write_addresses()
-#        print(self.md.get_md_text())
-
-    def save(self):
-        self.md.create_md_file()
-
+        self.save()
 
 
 # https://developers.google.com/people/quickstart/python
@@ -180,27 +186,31 @@ try:
         sortOrder='LAST_NAME_ASCENDING').execute()
     connections = results.get('connections', [])
 
-    index_md = MdUtils(file_name=logseq_people_index_file)
+    index_md = list()
 
     for person in connections:
 
-#        pprint(person)
-        index_md.new_header(level=1,title=f'[[{person["names"][0]["displayName"]}]]' )
+        index_md.append(f'# [[{person["names"][0]["displayName"]}]]\n' )
 
         p = md_person(person)
-        p.write()
-        p.save()
+        p.write_all()
 
-        names = person.get('names', [])
-        if names:
-            name = names[0].get('displayName')
-            try:
-                print(name)
-            except:
-                pass
+#        if (exists(p.file_name)):
+#            existing_md = MdUtils(file_name=p.file_name)
+#            existing_md.read_md_file(p.file_name)
+#            
+#            
+#            
+#            if p.md.get_md_text() != existing_md.get_md_text().replace("\n\n\n\n\n\n","\n\n\n"):
+#                print(f"Updates on {p.name}")
+#
+#                difference = difflib.unified_diff(p.md.get_md_text(), existing_md.get_md_text().replace("\n\n\n\n\n\n","\n\n\n"))
+#                for item in difference:
+#                    print(item, end='')
 
-    #print(index_md.get_md_text())
-    index_md.create_md_file()
+    with open(logseq_people_index_file,"w") as index_md_file:
+        index_md_file.writelines(index_md)
+        index_md_file.close()
 
 except Exception as err:
     print(err)
