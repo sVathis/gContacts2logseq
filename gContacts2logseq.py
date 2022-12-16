@@ -33,7 +33,6 @@ class md_person:
 
     def md_write_name(self):
         if 'names' in self.person:
-#            self.md.new_header( level=1, title=f'[[{self.name}]]' )
             self.write(f'title:: [[{self.name}]]\n')
             self.write(f'type:: [[People]]\n')
             self.write(f'page-type:: [[People]]\n')
@@ -120,6 +119,8 @@ class md_person:
 
 
     def write_all(self):
+        #Logseq requires a double newline on the begining of each .md file
+        self.write("\n\n")
         self.md_write_name()
         self.md_write_job()
         self.md_write_groups()
