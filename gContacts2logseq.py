@@ -223,9 +223,9 @@ try:
             p.save()
 
 
-#    with open(logseq_people_index_file,"w") as index_md_file:
-#        index_md_file.writelines(index_md)
-#        index_md_file.close()
+    with open(logseq_people_index_file,"w") as index_md_file:
+        index_md_file.writelines(index_md)
+        index_md_file.close()
 
 except Exception as err:
     print(err)
