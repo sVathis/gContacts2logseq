@@ -20,7 +20,6 @@ class md_person:
         self.person = person
         self.name = f'{person["names"][0]["displayName"]}'
         self.file_name=f'{self.path}{self.name}.md'
-        self.md = open(self.file_name,"w")
         self.buffer = ""
 
     def write(self, s):
@@ -153,7 +152,7 @@ def login():
         else:
             flow = InstalledAppFlow.from_client_secrets_file(
                 'credentials.json', SCOPES)
-            creds = flow.run_local_server(port=0)
+            creds = flow.run_local_server(port=8081, open_browser=False)
         # Save the credentials for the next run
         with open('token.json', 'w') as token:
             token.write(creds.to_json())
@@ -194,25 +193,39 @@ try:
 
         p = md_person(person)
         p.write_all()
-        p.save()
 
 
-        md = ""
+        existing_md = ""
         if (exists(p.file_name)):
             with open(p.file_name,"r") as f:
+#                print(f"Reading {p.file_name}")
                 existing_md =f.read()
-
+                f.close()
 
             if p.buffer != existing_md:
-                print(f"Updates on {p.name}")
+                # Compare the strings
+                differences = []
+                for c1, c2 in zip(existing_md, p.buffer):
+                    if c1 != c2:
+                        differences.append((c1, c2))
 
-                difference = difflib.unified_diff(p.buffer, existing_md)
-                for item in difference:
-                    print(item, end='')
+                # Print out the differences
+                if len(differences) > 0:
+                    print(f"{p.name} modified")
+                    p.save()
 
-    with open(logseq_people_index_file,"w") as index_md_file:
-        index_md_file.writelines(index_md)
-        index_md_file.close()
+#                    for d in differences:
+#                        print(d[0], "->", d[1])
+#            else:
+#                print(f"{p.name} unchanged")
+        else:
+            print(f"{p.name} added")
+            p.save()
+
+
+#    with open(logseq_people_index_file,"w") as index_md_file:
+#        index_md_file.writelines(index_md)
+#        index_md_file.close()
 
 except Exception as err:
     print(err)

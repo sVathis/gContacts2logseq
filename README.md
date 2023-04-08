@@ -23,7 +23,7 @@ Please visit this URL to authorize this application: https://accounts.google.com
 
 
 
-Periotically you may get the following error message when running `gContacts2logseq`:
+Periodically you may get the following error message when running `gContacts2logseq`:
 
 ```
 ('invalid_grant: Token has been expired or revoked.', {'error': 'invalid_grant', 'error_description': 'Token has been expired or revoked.'})
