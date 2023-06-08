@@ -10,15 +10,23 @@ from googleapiclient.errors import HttpError
 from os.path import exists
 
 
-logseq_graph_dir = "/mnt/c/tmp/logseq/pages/"
-logseq_people_dir = logseq_graph_dir + "People/"
+#logseq_graph_dir = "/mnt/c/tmp/logseq/pages/"
+#logseq_people_dir = logseq_graph_dir + "People/"
+logseq_people_dir ="/mnt/c/Users/spiros/Contacts/"
 logseq_people_index_file = logseq_people_dir + "People.md"
 
 class md_person:
     def __init__(self, person) -> None:
         self.path = logseq_people_dir
         self.person = person
-        self.name = f'{person["names"][0]["displayName"]}'
+
+        if 'names' in person.keys():
+            n = f'{person["names"][0]["displayName"]}'
+        else:
+            n = f'{person["organizations"][0]["name"]}'
+
+#        self.name = f'{person["names"][0]["displayName"]}'
+        self.name = n
         self.file_name=f'{self.path}{self.name}.md'
         self.buffer = ""
 
@@ -170,62 +178,67 @@ def populate_groups(service):
     return g
 
 
-try:
-    creds = login()
+#try:
+creds = login()
 
-    service = build('people', 'v1', credentials=creds)
+service = build('people', 'v1', credentials=creds)
 
-    global groups
-    groups = populate_groups(service)
+global groups
+groups = populate_groups(service)
 
-    results = service.people().connections().list(
-        resourceName='people/me',
-        pageSize=300,
-        personFields='names,phoneNumbers,emailAddresses,memberships,metadata,organizations,addresses,biographies,addresses',
-        sortOrder='LAST_NAME_ASCENDING').execute()
-    connections = results.get('connections', [])
+results = service.people().connections().list(
+    resourceName='people/me',
+    pageSize=300,
+    personFields='names,phoneNumbers,emailAddresses,memberships,metadata,organizations,addresses,biographies,addresses',
+    sortOrder='LAST_NAME_ASCENDING').execute()
+connections = results.get('connections', [])
 
-    index_md = list()
+index_md = list()
 
-    for person in connections:
+for person in connections:
 
-        index_md.append(f'# [[{person["names"][0]["displayName"]}]]\n' )
+    if 'names' in person.keys():
+        index_md_entry = f'# [[{person["names"][0]["displayName"]}]]\n'
+    else:
+        index_md_entry = f'# [[{person["organizations"][0]["name"]}]]\n'
 
-        p = md_person(person)
-        p.write_all()
+    index_md.append(index_md_entry)
+
+    p = md_person(person)
+    p.write_all()
 
 
-        existing_md = ""
-        if (exists(p.file_name)):
-            with open(p.file_name,"r") as f:
+    existing_md = ""
+    if (exists(p.file_name)):
+        with open(p.file_name,"r") as f:
 #                print(f"Reading {p.file_name}")
-                existing_md =f.read()
-                f.close()
+            existing_md =f.read()
+            f.close()
 
-            if p.buffer != existing_md:
-                # Compare the strings
-                differences = []
-                for c1, c2 in zip(existing_md, p.buffer):
-                    if c1 != c2:
-                        differences.append((c1, c2))
+        if p.buffer != existing_md:
+            # Compare the strings
+            differences = []
+            for c1, c2 in zip(existing_md, p.buffer):
+                if c1 != c2:
+                    differences.append((c1, c2))
 
-                # Print out the differences
-                if len(differences) > 0:
-                    print(f"{p.name} modified")
-                    p.save()
+            # Print out the differences
+            if len(differences) > 0:
+                print(f"{p.name} modified")
+                p.save()
 
 #                    for d in differences:
 #                        print(d[0], "->", d[1])
 #            else:
 #                print(f"{p.name} unchanged")
-        else:
-            print(f"{p.name} added")
-            p.save()
+    else:
+        print(f"{p.name} added")
+        p.save()
 
 
-    with open(logseq_people_index_file,"w") as index_md_file:
-        index_md_file.writelines(index_md)
-        index_md_file.close()
+with open(logseq_people_index_file,"w") as index_md_file:
+    index_md_file.writelines(index_md)
+    index_md_file.close()
 
-except Exception as err:
-    print(err)
+#except Exception as err:
+#    print(err)
