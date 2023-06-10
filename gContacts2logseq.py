@@ -40,6 +40,7 @@ class md_person:
 
     def md_write_name(self):
         if 'names' in self.person:
+            self.write('exclude-from-graph-view:: true\n')
             self.write(f'title:: [[{self.name}]]\n')
             self.write(f'type:: [[People]]\n')
             self.write(f'page-type:: [[People]]\n')
