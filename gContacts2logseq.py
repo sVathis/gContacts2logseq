@@ -84,9 +84,11 @@ class md_person:
             org = self.person['organizations'][0]
             jobs = list()
             if 'title' in org:
-                jobs.append(f"[[{org['title']}]]")
+#                jobs.append(f"[[{org['title']}]]")
+                self.write(f"job.title:: [[{org['title']}]]\n")
             if 'name' in org:
-                jobs.append(f"[[{org['name']}]]")
+                #jobs.append(f"[[{org['name']}]]")
+                self.write(f"company:: [[{org['name']}]]\n")
             j = ','.join(jobs)
             self.jobs = j
             if (j != ""):
@@ -238,6 +240,7 @@ for person in connections:
 
 
 with open(logseq_people_index_file,"w") as index_md_file:
+    index_md_file.write(f'icon:: \n')
     index_md_file.writelines(index_md)
     index_md_file.close()
 
