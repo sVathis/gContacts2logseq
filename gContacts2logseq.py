@@ -13,6 +13,7 @@ from os.path import exists
 #logseq_graph_dir = "/mnt/c/tmp/logseq/pages/"
 #logseq_people_dir = logseq_graph_dir + "People/"
 logseq_people_dir ="/mnt/c/Users/spiros/Contacts/"
+#logseq_people_dir = "/var/tmp/People/"
 logseq_people_index_file = logseq_people_dir + "People.md"
 
 class md_person:
@@ -85,10 +86,14 @@ class md_person:
             jobs = list()
             if 'title' in org:
 #                jobs.append(f"[[{org['title']}]]")
-                self.write(f"job.title:: [[{org['title']}]]\n")
+                jobtitle = f"[[{org['title']}]]"
+                self.jobtitle = jobtitle
+                self.write(f"job.title:: {jobtitle}\n")
             if 'name' in org:
                 #jobs.append(f"[[{org['name']}]]")
-                self.write(f"company:: [[{org['name']}]]\n")
+                company = f"[[{org['name']}]]"
+                self.company = company
+                self.write(f"company:: {company}\n")
             j = ','.join(jobs)
             self.jobs = j
             if (j != ""):
@@ -96,16 +101,20 @@ class md_person:
 
     def md_write_tags(self):
         g = hasattr(self,"groups")
-        j = hasattr(self,"jobs")
+        j = hasattr(self,"jobtitle")
+        c = hasattr(self,"company")
 
-        if (g and j):
-            self.write(f'tags:: {self.groups}, {self.jobs}\n')
-        else:
-            if (g and not j):
-                self.write(f'tags:: {self.groups}\n')
-            else:
-                if (not g and j):
-                    self.write(f'tags:: {self.jobs}\n')
+        tags_list = []
+        if (g):
+            tags_list.append(self.groups)
+        if (c):
+            tags_list.append(self.company)
+        if (j):
+            tags_list.append(self.jobtitle)
+
+        tags = ', '.join(tags_list)
+ 
+        self.write(f'tags:: {tags}\n')
 
 
     def md_write_notes(self):
