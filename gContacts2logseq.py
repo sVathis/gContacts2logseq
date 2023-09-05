@@ -104,7 +104,7 @@ class md_person:
         j = hasattr(self,"jobtitle")
         c = hasattr(self,"company")
 
-        tags_list = []
+        tags_list = ["[[People]]"]
         if (g):
             tags_list.append(self.groups)
         if (c):
