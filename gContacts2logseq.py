@@ -12,13 +12,13 @@ from os.path import exists
 
 #logseq_graph_dir = "/mnt/c/tmp/logseq/pages/"
 #logseq_people_dir = logseq_graph_dir + "People/"
-logseq_people_dir ="/mnt/c/Users/spiros/Contacts/"
+logseq_contacts_dir ="/mnt/c/Users/spiros/Contacts/"
 #logseq_people_dir = "/var/tmp/People/"
-logseq_people_index_file = logseq_people_dir + "People.md"
+logseq_contacts_index_file = logseq_contacts_dir + "Contacts.md"
 
 class md_person:
     def __init__(self, person) -> None:
-        self.path = logseq_people_dir
+        self.path = logseq_contacts_dir
         self.person = person
 
         if 'names' in person.keys():
@@ -42,10 +42,11 @@ class md_person:
     def md_write_name(self):
         if 'names' in self.person:
             self.write('exclude-from-graph-view:: true\n')
-            self.write(f'title:: [[{self.name}]]\n')
-            self.write(f'type:: [[People]]\n')
-            self.write(f'page-type:: [[People]]\n')
-            self.write(f'icon:: \n')
+            self.write(f'title:: {self.name}\n')
+            self.write(f'type:: [[Contact]]\n')
+            self.write(f'page-type:: [[Contact]]\n')
+            #self.write(f'icon:: \n') #People icon
+            self.write(f'icon:: 󱂾\n')  #Contact icon
 
     def md_write_phones(self):
         if 'phoneNumbers' in self.person:
@@ -70,7 +71,7 @@ class md_person:
             values = list()
             for membership in self.person['memberships']:
                 id = membership["contactGroupMembership"]["contactGroupResourceName"]
-                values.append(f'[[People/{groups[id]}]]')
+                values.append(f'[[Contact/{groups[id]}]]')
             gs = ", ".join(values)
             self.groups = gs
             if (gs != ""):
@@ -104,7 +105,7 @@ class md_person:
         j = hasattr(self,"jobtitle")
         c = hasattr(self,"company")
 
-        tags_list = ["[[People]]"]
+        tags_list = ["[[Contact]]"]
         if (g):
             tags_list.append(self.groups)
         if (c):
@@ -248,8 +249,9 @@ for person in connections:
         p.save()
 
 
-with open(logseq_people_index_file,"w") as index_md_file:
-    index_md_file.write(f'icon:: \n')
+with open(logseq_contacts_index_file,"w") as index_md_file:
+    #index_md_file.write(f'icon:: \n') #People icon
+    index_md_file.write(f'icon:: 󱂾\n') #Contact icon
     index_md_file.writelines(index_md)
     index_md_file.close()
 
