@@ -71,7 +71,8 @@ class md_person:
             values = list()
             for membership in self.person['memberships']:
                 id = membership["contactGroupMembership"]["contactGroupResourceName"]
-                values.append(f'[[Contact/{groups[id]}]]')
+                if id != 'contactGroups/myContacts':
+                    values.append(f'[[Contact/{groups[id]}]]')
             gs = ", ".join(values)
             self.groups = gs
             if (gs != ""):
@@ -106,7 +107,7 @@ class md_person:
         c = hasattr(self,"company")
 
         tags_list = ["[[Contact]]"]
-        if (g):
+        if g and self.groups != '':
             tags_list.append(self.groups)
         if (c):
             tags_list.append(self.company)
