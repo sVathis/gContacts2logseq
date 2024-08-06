@@ -10,11 +10,6 @@ from googleapiclient.errors import HttpError
 from os.path import exists
 
 
-# logseq_graph_dir = "/mnt/c/tmp/logseq/pages/"
-# logseq_people_dir = logseq_graph_dir + "People/"
-# logseq_people_dir = "/var/tmp/People/"
-
-
 class md_person:
     def __init__(self, person) -> None:
         self.path = logseq_contacts_dir
