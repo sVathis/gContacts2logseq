@@ -1,1 +1,4 @@
 .venv*
+contacts.json
+credentials.json
+token.json
