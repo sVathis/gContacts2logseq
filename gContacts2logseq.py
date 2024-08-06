@@ -8,7 +8,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from os.path import exists
-
+import re
 
 # logseq_graph_dir = "/mnt/c/tmp/logseq/pages/"
 # logseq_people_dir = logseq_graph_dir + "People/"
@@ -29,8 +29,23 @@ class md_person:
 
         #        self.name = f'{person["names"][0]["displayName"]}'
         self.name = n
-        self.file_name = f"{self.path}{self.name}.md"
+        self.file_name = f"{self.path}{self._sanitize_filename(self.name)}.md"
         self.buffer = ""
+
+    def _sanitize_filename(self, file_name: str) -> str:
+        """Sanitizes the filename by replacing invalid characters.
+
+        Invalid characters in Windows filenames include: <>:"/\\|?*
+
+        Args:
+            file_name (str): The original filename to be sanitized.
+
+        Returns:
+            str: The sanitized filename with invalid characters replaced by an underscore.
+        """
+        invalid_chars = r'[<>:"/\\|?*]'
+        sanitized_name = re.sub(invalid_chars, "_", file_name)
+        return sanitized_name
 
     def write(self, s):
         self.buffer += s
