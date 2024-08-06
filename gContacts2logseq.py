@@ -12,9 +12,7 @@ from os.path import exists
 
 # logseq_graph_dir = "/mnt/c/tmp/logseq/pages/"
 # logseq_people_dir = logseq_graph_dir + "People/"
-logseq_contacts_dir = "/mnt/c/Users/spiros/Contacts/"
 # logseq_people_dir = "/var/tmp/People/"
-logseq_contacts_index_file = logseq_contacts_dir + "Contacts.md"
 
 
 class md_person:
