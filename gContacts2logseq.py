@@ -185,9 +185,26 @@ def login():
 
 
 def populate_groups(service):
-    groups = service.contactGroups().list().execute()
+    groups = []
+    page_token = None
+
+    while True:
+        results = (
+            service.contactGroups()
+            .list(
+                pageSize=1000,
+            )
+            .execute()
+        )
+        groups.extend(results.get("contactGroups", []))
+
+        page_token = results.get("nextPageToken")
+
+        if not page_token:
+            break
+
     g = dict()
-    for group in groups["contactGroups"]:
+    for group in groups:
         g.__setitem__(group["resourceName"], group["formattedName"])
 
     #    pprint(g)
@@ -202,18 +219,29 @@ service = build("people", "v1", credentials=creds)
 global groups
 groups = populate_groups(service)
 
-results = (
-    service.people()
-    .connections()
-    .list(
-        resourceName="people/me",
-        pageSize=300,
-        personFields="names,phoneNumbers,emailAddresses,memberships,metadata,organizations,addresses,biographies,addresses",
-        sortOrder="LAST_NAME_ASCENDING",
+connections = []
+page_token = None
+
+while True:
+    results = (
+        service.people()
+        .connections()
+        .list(
+            resourceName="people/me",
+            pageSize=2000,
+            personFields="names,phoneNumbers,emailAddresses,memberships,metadata,organizations,addresses,biographies,addresses",
+            sortOrder="LAST_NAME_ASCENDING",
+            pageToken=page_token,
+        )
+        .execute()
     )
-    .execute()
-)
-connections = results.get("connections", [])
+
+    connections.extend(results.get("connections", []))
+    page_token = results.get("nextPageToken")
+
+    if not page_token:
+        break
+
 
 index_md = list()
 
