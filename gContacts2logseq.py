@@ -19,8 +19,11 @@ class md_person:
 
         if "names" in person.keys():
             n = f'{person["names"][0]["displayName"]}'
-        else:
+        
+        elif "organizations" in person.keys():
             n = f'{person["organizations"][0]["name"]}'
+        else:
+            n = f'{person["emailAddresses"][0]["value"]}'
 
         #        self.name = f'{person["names"][0]["displayName"]}'
         self.name = n
@@ -46,7 +49,7 @@ class md_person:
         self.buffer += s
 
     def save(self):
-        with open(self.file_name, "w", encoding="utf-8") as f:
+    with open(self.file_name, "w", encoding="utf-8") as f:
             f.write(self.buffer)
             f.close()
 
@@ -231,8 +234,10 @@ for person in connections:
 
     if "names" in person.keys():
         index_md_entry = f'# [[{person["names"][0]["displayName"]}]]\n'
-    else:
+    elif "organizations" in person.keys():
         index_md_entry = f'# [[{person["organizations"][0]["name"]}]]\n'
+    else:
+        index_md_entry = f'# [[{person["emailAddresses"][0]["value"]}]]\n'
 
     index_md.append(index_md_entry)
 
