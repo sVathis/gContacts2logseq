@@ -46,7 +46,7 @@ class md_person:
         self.buffer += s
 
     def save(self):
-        with open(self.file_name, "w") as f:
+        with open(self.file_name, "w", encoding="utf-8") as f:
             f.write(self.buffer)
             f.close()
 
@@ -188,7 +188,7 @@ def login():
             flow = InstalledAppFlow.from_client_secrets_file("credentials.json", SCOPES)
             creds = flow.run_local_server(port=8081, open_browser=False)
         # Save the credentials for the next run
-        with open("token.json", "w") as token:
+        with open("token.json", "w", encoding="utf-8") as token:
             token.write(creds.to_json())
 
     return creds
@@ -241,7 +241,7 @@ for person in connections:
 
     existing_md = ""
     if exists(p.file_name):
-        with open(p.file_name, "r") as f:
+        with open(p.file_name, "r", encoding="utf-8") as f:
             #                print(f"Reading {p.file_name}")
             existing_md = f.read()
             f.close()
@@ -267,7 +267,7 @@ for person in connections:
         p.save()
 
 
-with open(config.LOGSEQ_CONTACTS_INDEX_FILE, "w") as index_md_file:
+with open(config.LOGSEQ_CONTACTS_INDEX_FILE, "w", encoding="utf-8") as index_md_file:
     # index_md_file.write(f'icon:: \n') #People icon
     index_md_file.write(f"icon:: 󱂾\n")  # Contact icon
     index_md_file.writelines(index_md)
