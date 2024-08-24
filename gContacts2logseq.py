@@ -8,11 +8,13 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from os.path import exists
+import config
 import re
+
 
 class md_person:
     def __init__(self, person) -> None:
-        self.path = logseq_contacts_dir
+        self.path = config.LOGSEQ_CONTACTS_DIR
         self.person = person
 
         if "names" in person.keys():
@@ -265,7 +267,7 @@ for person in connections:
         p.save()
 
 
-with open(logseq_contacts_index_file, "w") as index_md_file:
+with open(config.LOGSEQ_CONTACTS_INDEX_FILE, "w") as index_md_file:
     # index_md_file.write(f'icon:: \n') #People icon
     index_md_file.write(f"icon:: 󱂾\n")  # Contact icon
     index_md_file.writelines(index_md)
