@@ -173,7 +173,7 @@ def login():
         else:
             flow = InstalledAppFlow.from_client_secrets_file(
                 'credentials.json', SCOPES)
-            creds = flow.run_local_server(port=0)
+            creds = flow.run_local_server(port=0,authorization_prompt_message='Please visit this URL: {url}',open_browser=False)
         # Save the credentials for the next run
         with open(TOKEN_FILE, 'w') as token:
             token.write(creds.to_json())
@@ -200,7 +200,7 @@ groups = populate_groups(service)
 
 results = service.people().connections().list(
     resourceName='people/me',
-    pageSize=300,
+    pageSize=500,
     personFields='names,phoneNumbers,emailAddresses,memberships,metadata,organizations,addresses,biographies,addresses',
     sortOrder='LAST_NAME_ASCENDING').execute()
 connections = results.get('connections', [])
