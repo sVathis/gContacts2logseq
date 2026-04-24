@@ -1,146 +1,164 @@
-import os.path
 import json
-import difflib
-from pprint import pprint 
+import logging
+import os
+import signal
+import sys
+import time
+
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-from os.path import exists
+
+logging.basicConfig(
+    level=os.environ.get("LOG_LEVEL", "INFO").upper(),
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    stream=sys.stdout,
+)
+log = logging.getLogger(__name__)
+
+SCOPES = [
+    "https://www.googleapis.com/auth/contacts.readonly",
+    "https://www.googleapis.com/auth/user.addresses.read",
+]
+
+_shutdown = False
 
 
-#logseq_graph_dir = "/mnt/c/tmp/logseq/pages/"
-#logseq_people_dir = logseq_graph_dir + "People/"
-logseq_contacts_dir ="/mnt/c/Users/spiros/Contacts/"
-#logseq_people_dir = "/var/tmp/People/"
-logseq_contacts_index_file = logseq_contacts_dir + "Contacts.md"
+def _handle_sigterm(signum, frame):
+    global _shutdown
+    log.info("SIGTERM received, shutting down after current sync")
+    _shutdown = True
+
+
+signal.signal(signal.SIGTERM, _handle_sigterm)
+
+
+def load_config() -> dict:
+    contacts_dir = os.environ.get("LOGSEQ_CONTACTS_DIR")
+    if not contacts_dir:
+        raise RuntimeError("LOGSEQ_CONTACTS_DIR environment variable is required")
+    contacts_dir = os.path.join(contacts_dir, "")
+    return {
+        "contacts_dir": contacts_dir,
+        "index_file": os.path.join(contacts_dir, "Contacts.md"),
+        "token_file": os.environ.get("TOKEN_FILE", "token.json"),
+        "credentials_file": os.environ.get("CREDENTIALS_FILE", "credentials.json"),
+    }
+
 
 class md_person:
-    def __init__(self, person) -> None:
-        self.path = logseq_contacts_dir
+    def __init__(self, person: dict, groups: dict, contacts_dir: str) -> None:
         self.person = person
+        self.groups_map = groups
+        self.path = contacts_dir
 
-        if 'names' in person.keys():
-            n = f'{person["names"][0]["displayName"]}'
+        if "names" in person:
+            self.name = person["names"][0]["displayName"]
+        elif "organizations" in person:
+            self.name = person["organizations"][0]["name"]
         else:
-            n = f'{person["organizations"][0]["name"]}'
+            resource = person.get("resourceName", "unknown")
+            raise ValueError(f"Contact {resource} has neither names nor organizations")
 
-#        self.name = f'{person["names"][0]["displayName"]}'
-        self.name = n
-        self.file_name=f'{self.path}{self.name}.md'
+        self.file_name = os.path.join(self.path, f"{self.name}.md")
         self.buffer = ""
 
     def write(self, s):
         self.buffer += s
 
     def save(self):
-        with open(self.file_name,"w") as f:
+        with open(self.file_name, "w") as f:
             f.write(self.buffer)
-            f.close()
 
     def md_write_name(self):
-        if 'names' in self.person:
-            self.write('exclude-from-graph-view:: true\n')
-            self.write(f'title:: {self.name}\n')
-            self.write(f'type:: [[Contact]]\n')
-            self.write(f'page-type:: [[Contact]]\n')
-            #self.write(f'icon:: \n') #People icon
-            self.write(f'icon:: 󱂾\n')  #Contact icon
+        if "names" in self.person:
+            self.write("exclude-from-graph-view:: true\n")
+            self.write(f"title:: {self.name}\n")
+            self.write("type:: [[Contact]]\n")
+            self.write("page-type:: [[Contact]]\n")
+            self.write("icon:: \U000f10be\n")
 
     def md_write_phones(self):
-        if 'phoneNumbers' in self.person:
-            for phone in self.person['phoneNumbers']:
-                if 'canonicalForm' in phone:
-                    if 'type' in phone:
+        if "phoneNumbers" in self.person:
+            for phone in self.person["phoneNumbers"]:
+                if "canonicalForm" in phone:
+                    if "type" in phone:
                         self.write(f'phone.{phone["type"]}:: `{phone["canonicalForm"]}`\n')
                     else:
                         self.write(f'phone:: `{phone["canonicalForm"]}`\n')
-                    
 
     def md_write_emails(self):
-        if 'emailAddresses' in self.person:
-            for email in self.person['emailAddresses']:
-                if 'type' in email:
+        if "emailAddresses" in self.person:
+            for email in self.person["emailAddresses"]:
+                if "type" in email:
                     self.write(f'email.{email["type"]}:: `{email["value"]}`\n')
                 else:
                     self.write(f'email:: `{email["value"]}`\n')
 
     def md_write_groups(self):
-        if 'memberships' in self.person:
-            values = list()
-            for membership in self.person['memberships']:
-                id = membership["contactGroupMembership"]["contactGroupResourceName"]
-                if id != 'contactGroups/myContacts':
-                    values.append(f'[[Contact/{groups[id]}]]')
+        if "memberships" in self.person:
+            values = [
+                f'[[Contact/{self.groups_map[m["contactGroupMembership"]["contactGroupResourceName"]]}]]'
+                for m in self.person["memberships"]
+                if m["contactGroupMembership"]["contactGroupResourceName"] != "contactGroups/myContacts"
+                and m["contactGroupMembership"]["contactGroupResourceName"] in self.groups_map
+            ]
             gs = ", ".join(values)
             self.groups = gs
-            if (gs != ""):
-                self.write(f'group:: {gs}\n')
-    
+            if gs:
+                self.write(f"group:: {gs}\n")
+
     def md_write_link(self):
-        if 'resourceName' in self.person:
-            self.write(f"url:: https://contacts.google.com/{self.person['resourceName'].replace('people','person')}\n")
+        if "resourceName" in self.person:
+            self.write(
+                f"url:: https://contacts.google.com/"
+                f"{self.person['resourceName'].replace('people', 'person')}\n"
+            )
 
     def md_write_job(self):
-        if 'organizations' in self.person:
-            org = self.person['organizations'][0]
-            jobs = list()
-            if 'title' in org:
-#                jobs.append(f"[[{org['title']}]]")
-                jobtitle = f"[[{org['title']}]]"
-                self.jobtitle = jobtitle
-                self.write(f"job.title:: {jobtitle}\n")
-            if 'name' in org:
-                #jobs.append(f"[[{org['name']}]]")
-                company = f"[[{org['name']}]]"
-                self.company = company
-                self.write(f"company:: {company}\n")
-            j = ','.join(jobs)
-            self.jobs = j
-            if (j != ""):
-                self.write(f'jobs:: {j}\n')
+        if "organizations" not in self.person:
+            return
+        org = self.person["organizations"][0]
+        if "title" in org:
+            self.jobtitle = f"[[{org['title']}]]"
+            self.write(f"job.title:: {self.jobtitle}\n")
+        if "name" in org:
+            self.company = f"[[{org['name']}]]"
+            self.write(f"company:: {self.company}\n")
 
     def md_write_tags(self):
-        g = hasattr(self,"groups")
-        j = hasattr(self,"jobtitle")
-        c = hasattr(self,"company")
-
         tags_list = ["[[Contact]]"]
-        if g and self.groups != '':
+        if hasattr(self, "groups") and self.groups:
             tags_list.append(self.groups)
-        if (c):
+        if hasattr(self, "company"):
             tags_list.append(self.company)
-        if (j):
+        if hasattr(self, "jobtitle"):
             tags_list.append(self.jobtitle)
-
-        tags = ', '.join(tags_list)
- 
-        self.write(f'tags:: {tags}\n')
-
+        self.write(f'tags:: {", ".join(tags_list)}\n')
 
     def md_write_notes(self):
-        if 'biographies' in self.person:
+        if "biographies" in self.person:
             self.write(f'{self.person["biographies"][0]["value"]}\n')
 
     def md_write_addresses(self):
-        if 'addresses' in self.person:
-            for address in self.person['addresses']:
-                if 'formattedValue' in address:
-                    a = address["formattedValue"].replace("\n",", ")
-                    map_iframe = f'<iframe src="https://www.google.com/maps?q={a}&output=embed" frameborder="0" style="border:0"></iframe>'
-                    if 'type' in address:
+        if "addresses" in self.person:
+            for address in self.person["addresses"]:
+                if "formattedValue" in address:
+                    a = address["formattedValue"].replace("\n", ", ")
+                    map_iframe = (
+                        f'<iframe src="https://www.google.com/maps?q={a}&output=embed"'
+                        f' frameborder="0" style="border:0"></iframe>'
+                    )
+                    if "type" in address:
                         self.write(f'address.{address["type"]}:: `{a}`\n')
                         self.write(f'map.{address["type"]}:: {map_iframe}\n')
                     else:
-                        self.write(f'address:: `{a}`\n')
-                        self.write(f'map:: {map_iframe}\n')
-
-
-
+                        self.write(f"address:: `{a}`\n")
+                        self.write(f"map:: {map_iframe}\n")
 
     def write_all(self):
-        #Logseq requires a double newline on the begining of each .md file
         self.write("\n\n")
         self.md_write_name()
         self.md_write_job()
@@ -154,105 +172,116 @@ class md_person:
 
 
 # https://developers.google.com/people/quickstart/python
-TOKEN_FILE = 'token.json'
-
-# If modifying these scopes, delete the file token.json.
-SCOPES = ['https://www.googleapis.com/auth/contacts.readonly','https://www.googleapis.com/auth/user.addresses.read']
-
-
-def login():
+def login(config: dict) -> Credentials:
     creds = None
-    # Load credentials from the token file if it exists
-    if os.path.exists(TOKEN_FILE):
-        with open(TOKEN_FILE, 'r') as token:
+    token_path = config["token_file"]
+    if os.path.exists(token_path):
+        with open(token_path, "r") as token:
             creds = Credentials.from_authorized_user_info(json.load(token), SCOPES)
-    # If there are no valid credentials available, let the user log in
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
+            with open(token_path, "w") as token:
+                token.write(creds.to_json())
         else:
-            flow = InstalledAppFlow.from_client_secrets_file(
-                'credentials.json', SCOPES)
-            creds = flow.run_local_server(port=0,authorization_prompt_message='Please visit this URL: {url}',open_browser=False)
-        # Save the credentials for the next run
-        with open(TOKEN_FILE, 'w') as token:
-            token.write(creds.to_json())
+            raise RuntimeError(
+                "No valid token found and interactive OAuth is not available. "
+                "Run the script outside Docker first to generate token.json, "
+                "then mount it at TOKEN_FILE."
+            )
     return creds
 
 
-def populate_groups(service):
-    groups = service.contactGroups().list().execute()
-    g=dict()
-    for group in groups['contactGroups']:
-        g.__setitem__(group['resourceName'],group['formattedName'])
-
-#    pprint(g)
-    return g
+def populate_groups(service) -> dict:
+    result = service.contactGroups().list().execute()
+    return {g["resourceName"]: g["formattedName"] for g in result["contactGroups"]}
 
 
-#try:
-creds = login()
-
-service = build('people', 'v1', credentials=creds)
-
-global groups
-groups = populate_groups(service)
-
-results = service.people().connections().list(
-    resourceName='people/me',
-    pageSize=500,
-    personFields='names,phoneNumbers,emailAddresses,memberships,metadata,organizations,addresses,biographies,addresses',
-    sortOrder='LAST_NAME_ASCENDING').execute()
-connections = results.get('connections', [])
-
-index_md = list()
-
-for person in connections:
-
-    if 'names' in person.keys():
-        index_md_entry = f'# [[{person["names"][0]["displayName"]}]]\n'
-    else:
-        index_md_entry = f'# [[{person["organizations"][0]["name"]}]]\n'
-
-    index_md.append(index_md_entry)
-
-    p = md_person(person)
-    p.write_all()
+def fetch_all_contacts(service) -> list:
+    connections, page_token = [], None
+    while True:
+        kwargs = dict(
+            resourceName="people/me",
+            pageSize=1000,
+            personFields=(
+                "names,phoneNumbers,emailAddresses,memberships,"
+                "metadata,organizations,addresses,biographies"
+            ),
+            sortOrder="LAST_NAME_ASCENDING",
+        )
+        if page_token:
+            kwargs["pageToken"] = page_token
+        result = service.people().connections().list(**kwargs).execute()
+        connections.extend(result.get("connections", []))
+        page_token = result.get("nextPageToken")
+        if not page_token:
+            break
+    log.info("Fetched %d contacts", len(connections))
+    return connections
 
 
-    existing_md = ""
-    if (exists(p.file_name)):
-        with open(p.file_name,"r") as f:
-#                print(f"Reading {p.file_name}")
-            existing_md =f.read()
-            f.close()
+def run_sync(config: dict, service, groups: dict) -> None:
+    connections = fetch_all_contacts(service)
+    index_md = []
 
-        if p.buffer != existing_md:
-            # Compare the strings
-            differences = []
-            for c1, c2 in zip(existing_md, p.buffer):
-                if c1 != c2:
-                    differences.append((c1, c2))
+    for person in connections:
+        if "names" in person:
+            index_md.append(f'# [[{person["names"][0]["displayName"]}]]\n')
+        elif "organizations" in person:
+            index_md.append(f'# [[{person["organizations"][0]["name"]}]]\n')
 
-            # Print out the differences
-            if len(differences) > 0:
-                print(f"{p.name} modified")
+        try:
+            p = md_person(person, groups, config["contacts_dir"])
+        except ValueError as e:
+            log.warning("Skipping contact: %s", e)
+            continue
+
+        p.write_all()
+
+        existing_md = ""
+        if os.path.exists(p.file_name):
+            with open(p.file_name, "r") as f:
+                existing_md = f.read()
+            if p.buffer != existing_md:
+                log.info("%s modified", p.name)
                 p.save()
+        else:
+            log.info("%s added", p.name)
+            p.save()
 
-#                    for d in differences:
-#                        print(d[0], "->", d[1])
-#            else:
-#                print(f"{p.name} unchanged")
-    else:
-        print(f"{p.name} added")
-        p.save()
+    with open(config["index_file"], "w") as index_md_file:
+        index_md_file.write("icon:: \U000f10be\n")
+        index_md_file.writelines(index_md)
+
+    log.info("Sync complete: %d contacts written", len(connections))
 
 
-with open(logseq_contacts_index_file,"w") as index_md_file:
-    #index_md_file.write(f'icon:: \n') #People icon
-    index_md_file.write(f'icon:: 󱂾\n') #Contact icon
-    index_md_file.writelines(index_md)
-    index_md_file.close()
+def main():
+    config = load_config()
+    creds = login(config)
+    service = build("people", "v1", credentials=creds)
+    groups = populate_groups(service)
 
-#except Exception as err:
-#    print(err)
+    interval = int(os.environ.get("SYNC_INTERVAL_SECONDS", "3600"))
+
+    while True:
+        try:
+            run_sync(config, service, groups)
+        except HttpError as e:
+            log.error("Google API error: %s", e)
+        except Exception:
+            log.exception("Sync failed, will retry next interval")
+
+        if interval == 0:
+            break
+
+        log.info("Next sync in %d seconds", interval)
+        for _ in range(interval):
+            if _shutdown:
+                log.info("Shutting down")
+                sys.exit(0)
+            time.sleep(1)
+
+
+if __name__ == "__main__":
+    main()

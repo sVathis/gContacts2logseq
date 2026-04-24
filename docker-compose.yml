@@ -1,0 +1,13 @@
+services:
+  gcontacts2logseq:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      # credentials.json is read-only; token.json must be rw so token refresh is persisted
+      - ./credentials.json:/secrets/credentials.json:ro
+      - ./token.json:/secrets/token.json:rw
+      # Host path comes from LOGSEQ_CONTACTS_DIR in .env; inside the container it is always /contacts
+      - ${LOGSEQ_CONTACTS_DIR}:/contacts:rw
+    environment:
+      - LOGSEQ_CONTACTS_DIR=/contacts
