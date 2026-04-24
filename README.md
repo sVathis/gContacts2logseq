@@ -15,40 +15,23 @@ A Python script that uses the [Google People API](https://developers.google.com/
 
 ## First-time authentication
 
-Authentication must be done **outside Docker** — it opens a browser flow that cannot run inside a container.
+When no valid token exists — on first run, or after a token is revoked — the script automatically starts an OAuth flow on port **8080** and prints a URL to the logs. Open the URL in your browser, complete the Google authorization, and the token is saved automatically. The sync then starts immediately.
 
-1. Install dependencies:
-   ```bash
-   python -m venv .venv
-   source .venv/bin/activate
-   pip install -r requirements.txt
-   ```
-
-2. Set the contacts output directory and run once:
-   ```bash
-   export LOGSEQ_CONTACTS_DIR="/mnt/c/Users/spiros/Contacts"
-   python gContacts2logseq.py
-   ```
-
-3. Copy the printed URL into your browser, complete the Google authorization flow, then close the tab. A `token.json` file is written to the current directory.
-
-4. Verify the token includes a refresh token:
-   ```bash
-   python -c "import json; d=json.load(open('token.json')); print('OK' if d.get('refresh_token') else 'MISSING refresh_token')"
-   ```
-
-After this, the script (and Docker container) will silently refresh the token on each run.
+This works both when running locally and inside Docker (port 8080 is exposed in `docker-compose.yml`).
 
 ---
 
 ## Running locally
 
 ```bash
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+
 export LOGSEQ_CONTACTS_DIR="/mnt/c/Users/spiros/Contacts"
 python gContacts2logseq.py
 ```
 
-`token.json` and `credentials.json` are read from the current directory by default. Set `SYNC_INTERVAL_SECONDS=0` to run once and exit instead of looping.
+`token.json` and `credentials.json` are read from the current directory by default. If `token.json` is missing, the OAuth flow starts automatically on port 8080. Set `SYNC_INTERVAL_SECONDS=0` to run once and exit instead of looping.
 
 ---
 

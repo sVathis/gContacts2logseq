@@ -3,6 +3,8 @@ services:
     build: .
     restart: unless-stopped
     env_file: .env
+    ports:
+      - "8080:8080"
     volumes:
       # credentials.json is read-only; token.json must be rw so token refresh is persisted
       - ./credentials.json:/secrets/credentials.json:ro

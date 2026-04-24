@@ -184,11 +184,19 @@ def login(config: dict) -> Credentials:
             with open(token_path, "w") as token:
                 token.write(creds.to_json())
         else:
-            raise RuntimeError(
-                "No valid token found and interactive OAuth is not available. "
-                "Run the script outside Docker first to generate token.json, "
-                "then mount it at TOKEN_FILE."
+            log.info("No valid token found — starting OAuth flow on port 8080")
+            log.info("Open the URL below in your browser to authorize:")
+            flow = InstalledAppFlow.from_client_secrets_file(
+                config["credentials_file"], SCOPES
             )
+            creds = flow.run_local_server(
+                port=8080,
+                authorization_prompt_message="\n{url}\n",
+                open_browser=False,
+            )
+            with open(token_path, "w") as token:
+                token.write(creds.to_json())
+            log.info("Authorization complete — token saved to %s", token_path)
     return creds
 
 
